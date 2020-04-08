@@ -37,9 +37,10 @@
         (if (check-port port) port (find-port check-port prefix (+ 1 num))))
       #f))
 
-(define (find-mac-port)
-  (string-append "/dev/" (path->string (first (for/list ([f (directory-list "/dev")] #:when (regexp-match? "tty.usbmodem*|tty.usbserialtty.usbmodem*|tty.usbserial*|cu.usbmodem*" f))
-     f))))
+(define (find-mac-port) ;;RDEMU-1 Nicola
+  ;; read all the serial ports
+  (define conn (for/list ([f (directory-list "/dev")] #:when (regexp-match? "tty.usbmodem*|tty.usbserialtty.usbmodem*|tty.usbserial*|cu.usbmodem*" f)) f))
+  (cond ( (empty? conn) "emulator") ((string-append "/dev/" (path->string (first conn))))) 
   )
 
 (define (valid-com-port port)

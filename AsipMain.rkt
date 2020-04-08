@@ -97,51 +97,72 @@
   (define call-string null)
   (define filename null)
   (define os (detect-os))
-  (cond
-   ( (equal? os "linux")
-     (set! call-string (string-append  "stty -F " port-name " cs8 " BAUDRATE " ignbrk -brkint -icrnl -imaxbel -opost -onlcr -isig -icanon -iexten -echo -echoe -echok -echoctl -echoke noflsh -ixon -crtscts"))
-     (set! filename port-name))
-   ( (equal? os "mac")
-     (set! call-string (string-append  "stty -f " port-name " " BAUDRATE " cs8 cread clocal"))
-     (set! filename port-name))
-   ( (equal? os "win")
-     (set! call-string (string-append  "mode " port-name ": baud=" BAUDRATE " parity=N data=8 stop=1 dtr=on"))
-     (set! filename (string-append "\\\\?\\" port-name)))
-   ) ;; end of cond to set stty or mode string and filename.
+  (cond (
+         (equal? port-name "emulator") (set! filename "emulator") (printf "EMULATOR\n")) ;; RDEMU-1 Nicola -> no port, try emulator
+        (
+         (cond
+           ( (equal? os "linux")
+             (set! call-string (string-append  "stty -F " port-name " cs8 " BAUDRATE " ignbrk -brkint -icrnl -imaxbel -opost -onlcr -isig -icanon -iexten -echo -echoe -echok -echoctl -echoke noflsh -ixon -crtscts"))
+             (set! filename port-name))
+           ( (equal? os "mac")
+             (set! call-string (string-append  "stty -f " port-name " " BAUDRATE " cs8 cread clocal"))
+             (set! filename port-name))
+           ( (equal? os "win")
+             (set! call-string (string-append  "mode " port-name ": baud=" BAUDRATE " parity=N data=8 stop=1 dtr=on"))
+             (set! filename (string-append "\\\\?\\" port-name)))
+           ) ;; end of cond to set stty or mode string and filename.
+         )
+        )
 
-  (cond ( (equal? os "win")
-	  (if (system call-string) ;; here we set the port
-	      (begin
-	       (let-values ([(in-port out-port) (open-input-output-file filename #:mode 'binary #:exists 'append)])
-			   (set! in in-port)
-			   (set! out out-port)
-			   (file-stream-buffer-mode out 'none)
-                           ;(file-stream-buffer-mode in 'line)
-			   )
-	       (sleep 2)
-               ;; This is here for a reason. But I won't tell you. Ah ah ah!!!
-               ;;;(set-pin-mode 14 ANALOG_MODE)
-               ;;;(sleep 0.1)
-               ;;;(set-autoreport 50)
-               ;;;(sleep 0.1)
-	       (set! read-thread (thread (lambda ()  (read-hook)))) ;; we set the reading thread
-	       #t)
-	    (error "Failed to open the connection with " port-name " verify if your microcontroller is plugged in correctly"))
-	  )
-        (else
-         (sleep 2)
-         (if (system call-string) ;; here we set the port
-             (begin
-	      (sleep 1)
-				(set! out (open-output-file port-name #:mode 'binary #:exists 'append))
-				(set! in  (open-input-file  port-name #:mode 'binary))
-				(file-stream-buffer-mode out 'none)
-	      (set! read-thread (thread (lambda ()  (read-hook)))) ;; we set the reading thread
-	      (printf "Success opening the serial port\n")
-	      #t)
-	   (error "Failed to open the connection with " port-name " verify if your microcontroller is plugged in correctly"))
-	 )
-	)
+  (cond ( (equal? port-name "emulator")
+          ;; RDEMU-1 Nicola -> init fake port
+          (sleep 2)
+          (begin
+            (sleep 1)
+            (set! out (open-output-file port-name #:mode 'binary #:exists 'append))
+            (set! in  (open-input-file  port-name #:mode 'binary))
+            (file-stream-buffer-mode out 'none)
+            (set! read-thread (thread (lambda ()  (read-hook)))) ;; we set the reading thread
+            (printf "Success opening the serial port\n")
+            #t)
+         )
+         (else
+          (cond ( (equal? os "win")
+                  (if (system call-string) ;; here we set the port
+                      (begin
+                        (let-values ([(in-port out-port) (open-input-output-file filename #:mode 'binary #:exists 'append)])
+                          (set! in in-port)
+                          (set! out out-port)
+                          (file-stream-buffer-mode out 'none)
+                          ;(file-stream-buffer-mode in 'line)
+                          )
+                        (sleep 2)
+                        ;; This is here for a reason. But I won't tell you. Ah ah ah!!!
+                        ;;;(set-pin-mode 14 ANALOG_MODE)
+                        ;;;(sleep 0.1)
+                        ;;;(set-autoreport 50)
+                        ;;;(sleep 0.1)
+                        (set! read-thread (thread (lambda ()  (read-hook)))) ;; we set the reading thread
+                        #t)
+                      (error "Failed to open the connection with " port-name " verify if your microcontroller is plugged in correctly"))
+                  )
+                (else
+                 (sleep 2)
+                 (if (system call-string) ;; here we set the port
+                     (begin
+                       (sleep 1)
+                       (set! out (open-output-file port-name #:mode 'binary #:exists 'append))
+                       (set! in  (open-input-file  port-name #:mode 'binary))
+                       (file-stream-buffer-mode out 'none)
+                       (set! read-thread (thread (lambda ()  (read-hook)))) ;; we set the reading thread
+                       (printf "Success opening the serial port\n")
+                       #t)
+                     (error "Failed to open the connection with " port-name " verify if your microcontroller is plugged in correctly"))
+                 )
+                )
+          )
+         )
+  
   (sleep 1)
   ;; We request port mapping so that we know that we have it later on
   (request-port-mapping)
