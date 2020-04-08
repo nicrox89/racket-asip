@@ -16,7 +16,8 @@
 ;; How to use it: you can use any of the functions and constants exported
 ;; below in the (provide... ) block.
 
-(provide open-asip
+(provide emulator-mode
+         open-asip
          close-asip
          set-pin-mode
          digital-write
@@ -78,7 +79,15 @@
 (define out               null)
 (define read-thread       null)
 
-
+;; RDEMU-1 Nicola - start block ------------------------------------------
+;; This variable means use a custom file of try to connect to the serial ;|
+;; default emulator #f - try to connect to the serial                    ;|
+(define emulator #f)                                                     ;|
+                                                                         ;|
+;; Function that set the emulator mode                                   ;|
+(define emulator-mode (λ () (set! emulator #t)))                         ;|
+                                                                         ;|
+;; RDEMU-1 Nicola - end block --------------------------------------------
 
 ;; *** BEGIN SECTION TO DEFINE SERIAL CONNECTION ***
 ;; This function creates in and out and sets the read thread.
@@ -89,30 +98,26 @@
 (define (open-asip [port "NONE"])
   (define port-name port)
   (cond ( (equal? port "NONE")
-          (set! port-name (get-port))
-          )
-        )
+          (cond ( (equal? emulator #t) (set! port-name "emulator")) ;; RDEMU-1 Nicola - emulator control
+          (else (set! port-name (get-port)))))
+     )
+          
   ;; We set the command line instruction to configure the serial port according to the OS;
   ;; we also configure the file name of the port to be opened (it is different in win)
   (define call-string null)
   (define filename null)
   (define os (detect-os))
-  (cond (
-         (equal? port-name "emulator") (set! filename "emulator") (printf "EMULATOR\n")) ;; RDEMU-1 Nicola -> no port, try emulator
-        (
-         (cond
-           ( (equal? os "linux")
-             (set! call-string (string-append  "stty -F " port-name " cs8 " BAUDRATE " ignbrk -brkint -icrnl -imaxbel -opost -onlcr -isig -icanon -iexten -echo -echoe -echok -echoctl -echoke noflsh -ixon -crtscts"))
-             (set! filename port-name))
-           ( (equal? os "mac")
-             (set! call-string (string-append  "stty -f " port-name " " BAUDRATE " cs8 cread clocal"))
-             (set! filename port-name))
-           ( (equal? os "win")
-             (set! call-string (string-append  "mode " port-name ": baud=" BAUDRATE " parity=N data=8 stop=1 dtr=on"))
-             (set! filename (string-append "\\\\?\\" port-name)))
-           ) ;; end of cond to set stty or mode string and filename.
-         )
-        )
+  (cond
+    ( (equal? os "linux")
+      (set! call-string (string-append  "stty -F " port-name " cs8 " BAUDRATE " ignbrk -brkint -icrnl -imaxbel -opost -onlcr -isig -icanon -iexten -echo -echoe -echok -echoctl -echoke noflsh -ixon -crtscts"))
+      (set! filename port-name))
+    ( (equal? os "mac")
+      (set! call-string (string-append  "stty -f " port-name " " BAUDRATE " cs8 cread clocal"))
+      (set! filename port-name))
+    ( (equal? os "win")
+      (set! call-string (string-append  "mode " port-name ": baud=" BAUDRATE " parity=N data=8 stop=1 dtr=on"))
+      (set! filename (string-append "\\\\?\\" port-name)))
+    ) ;; end of cond to set stty or mode string and filename.
 
   (cond ( (equal? port-name "emulator")
           ;; RDEMU-1 Nicola -> init fake port
@@ -910,6 +915,8 @@
   (vector-ref DISTANCE-VALUES pos)
   )
   )
+
+
 (define (testLoop)
   (setMotor 0 150)
   (sleep 1)
